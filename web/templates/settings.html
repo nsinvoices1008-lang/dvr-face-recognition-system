@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - DVR Face Recognition</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1>🎥 DVR Face Recognition</h1>
+            <ul class="nav-menu">
+                <li><a href="/">Dashboard</a></li>
+                <li><a href="/persons">Persons</a></li>
+                <li><a href="/settings" class="active">Settings</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <h2>System Settings</h2>
+        
+        <div class="settings-section">
+            <h3>📹 DVR Configuration</h3>
+            <div class="form-group">
+                <label>DVR IP Address:</label>
+                <input type="text" id="dvr-ip" placeholder="192.168.1.100">
+            </div>
+            <div class="form-group">
+                <label>Port:</label>
+                <input type="number" id="dvr-port" placeholder="554">
+            </div>
+            <div class="form-group">
+                <label>Username:</label>
+                <input type="text" id="dvr-username" placeholder="admin">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="dvr-password" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+                <label>Channel:</label>
+                <input type="number" id="dvr-channel" placeholder="1">
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h3>🔔 Notification Settings</h3>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="notifications-enabled">
+                    Enable Notifications
+                </label>
+            </div>
+            
+            <h4>📧 Email (SendGrid)</h4>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="email-enabled">
+                    Enable Email Notifications
+                </label>
+            </div>
+            <div class="form-group">
+                <label>SendGrid API Key:</label>
+                <input type="password" id="sendgrid-api-key" placeholder="SG.••••••••">
+            </div>
+            <div class="form-group">
+                <label>From Email:</label>
+                <input type="email" id="from-email" placeholder="alerts@yourdomain.com">
+            </div>
+            <div class="form-group">
+                <label>To Email:</label>
+                <input type="email" id="to-email" placeholder="you@email.com">
+            </div>
+            
+            <h4>📱 Telegram</h4>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="telegram-enabled">
+                    Enable Telegram Notifications
+                </label>
+            </div>
+            <div class="form-group">
+                <label>Bot Token:</label>
+                <input type="password" id="telegram-bot-token" placeholder="123456:ABC-DEF...">
+            </div>
+            <div class="form-group">
+                <label>Chat ID:</label>
+                <input type="text" id="telegram-chat-id" placeholder="123456789">
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h3>🎯 Recognition Settings</h3>
+            <div class="form-group">
+                <label>Recognition Tolerance (0.0 - 1.0):</label>
+                <input type="number" id="recognition-tolerance" step="0.1" min="0" max="1" placeholder="0.6">
+                <small>Lower = stricter matching, Higher = more lenient</small>
+            </div>
+            <div class="form-group">
+                <label>Process Every N Frames:</label>
+                <input type="number" id="process-frames" min="1" max="30" placeholder="6">
+                <small>Higher = less CPU usage, but slower detection</small>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+            <button class="btn" onclick="loadSettings()">Reset</button>
+        </div>
+    </div>
+
+    <script>
+        async function loadSettings() {
+            try {
+                const config = await fetch('/api/config').then(r => r.json());
+                
+                // DVR settings
+                document.getElementById('dvr-ip').value = config.dvr?.ip || '';
+                document.getElementById('dvr-port').value = config.dvr?.port || 554;
+                document.getElementById('dvr-username').value = config.dvr?.username || '';
+                document.getElementById('dvr-channel').value = config.dvr?.channel || 1;
+                
+                // Notification settings
+                document.getElementById('notifications-enabled').checked = config.notifications?.enabled || false;
+                
+                // Email settings
+                document.getElementById('email-enabled').checked = config.notifications?.email?.enabled || false;
+                document.getElementById('from-email').value = config.notifications?.email?.from_email || '';
+                document.getElementById('to-email').value = config.notifications?.email?.to_email || '';
+                
+                // Telegram settings
+                document.getElementById('telegram-enabled').checked = config.notifications?.telegram?.enabled || false;
+                document.getElementById('telegram-chat-id').value = config.notifications?.telegram?.chat_id || '';
+                
+                // Recognition settings
+                document.getElementById('recognition-tolerance').value = config.recognition?.tolerance || 0.6;
+                document.getElementById('process-frames').value = config.recognition?.process_every_n_frames || 6;
+                
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                alert('Failed to load settings');
+            }
+        }
+
+        async function saveSettings() {
+            const config = {
+                dvr: {
+                    ip: document.getElementById('dvr-ip').value,
+                    port: parseInt(document.getElementById('dvr-port').value),
+                    username: document.getElementById('dvr-username').value,
+                    password: document.getElementById('dvr-password').value || undefined,
+                    channel: parseInt(document.getElementById('dvr-channel').value)
+                },
+                notifications: {
+                    enabled: document.getElementById('notifications-enabled').checked,
+                    email: {
+                        enabled: document.getElementById('email-enabled').checked,
+                        sendgrid_api_key: document.getElementById('sendgrid-api-key').value || undefined,
+                        from_email: document.getElementById('from-email').value,
+                        to_email: document.getElementById('to-email').value
+                    },
+                    telegram: {
+                        enabled: document.getElementById('telegram-enabled').checked,
+                        bot_token: document.getElementById('telegram-bot-token').value || undefined,
+                        chat_id: document.getElementById('telegram-chat-id').value
+                    }
+                },
+                recognition: {
+                    tolerance: parseFloat(document.getElementById('recognition-tolerance').value),
+                    process_every_n_frames: parseInt(document.getElementById('process-frames').value)
+                }
+            };
+            
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert('✓ Settings saved successfully! Please restart the system for changes to take effect.');
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                alert('Failed to save settings');
+            }
+        }
+
+        // Load settings on page load
+        loadSettings();
+    </script>
+
+    <style>
+        .settings-section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+        }
+        
+        .settings-section h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .settings-section h4 {
+            color: #333;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .settings-section small {
+            display: block;
+            color: #999;
+            font-size: 0.85rem;
+            margin-top: 0.25rem;
+        }
+        
+        .form-group label input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+    </style>
+</body>
+</html>
