@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DVR Face Recognition System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <h1>🎥 DVR Face Recognition</h1>
+            <ul class="nav-menu">
+                <li><a href="/" class="active">Dashboard</a></li>
+                <li><a href="/persons">Persons</a></li>
+                <li><a href="/settings">Settings</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <div class="hero">
+            <h2>Welcome to DVR Face Recognition System</h2>
+            <p>Monitor and identify visitors automatically using your CP Plus DVR</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-info">
+                    <h3 id="total-persons">0</h3>
+                    <p>Registered Persons</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-info">
+                    <h3 id="total-visits">0</h3>
+                    <p>Total Visits</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">🕐</div>
+                <div class="stat-info">
+                    <h3 id="visits-today">0</h3>
+                    <p>Visits Today</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">❓</div>
+                <div class="stat-info">
+                    <h3 id="unknown-count">0</h3>
+                    <p>Unknown Visitors</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Recent Activity</h2>
+            <div id="recent-visits" class="activity-list">
+                <p class="loading">Loading recent activity...</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Unknown Visitors</h2>
+            <div id="unknown-visitors" class="unknown-grid">
+                <p class="loading">Loading unknown visitors...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load dashboard data
+        async function loadDashboard() {
+            try {
+                // Load stats
+                const stats = await fetch('/api/stats').then(r => r.json());
+                document.getElementById('total-persons').textContent = stats.total_persons || 0;
+                document.getElementById('total-visits').textContent = stats.total_visits || 0;
+                document.getElementById('visits-today').textContent = stats.visits_today || 0;
+                document.getElementById('unknown-count').textContent = stats.unknown_visitors || 0;
+                
+                // Load recent visits
+                const visits = await fetch('/api/visits?limit=10').then(r => r.json());
+                const visitsContainer = document.getElementById('recent-visits');
+                visitsContainer.innerHTML = '';
+                
+                if (visits.length === 0) {
+                    visitsContainer.innerHTML = '<p class="empty">No recent visits</p>';
+                } else {
+                    visits.forEach(visit => {
+                        const item = document.createElement('div');
+                        item.className = 'activity-item';
+                        const imgPath = visit.image_path.split('/').pop();
+                        const timestamp = new Date(visit.timestamp).toLocaleString();
+                        const confidence = (visit.confidence * 100).toFixed(1);
+                        
+                        item.innerHTML = `
+                            <img src="/images/${imgPath}" alt="${visit.name}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'60\\' height=\\'60\\'%3E%3Crect fill=\\'%23ddd\\' width=\\'60\\' height=\\'60\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\'%3E?%3C/text%3E%3C/svg%3E'">
+                            <div class="activity-info">
+                                <h4>${visit.name}</h4>
+                                <p>${timestamp}</p>
+                                <p class="confidence">Confidence: ${confidence}%</p>
+                            </div>
+                        `;
+                        visitsContainer.appendChild(item);
+                    });
+                }
+                
+                // Load unknown visitors
+                const unknown = await fetch('/api/unknown?limit=12').then(r => r.json());
+                const unknownContainer = document.getElementById('unknown-visitors');
+                unknownContainer.innerHTML = '';
+                
+                if (unknown.length === 0) {
+                    unknownContainer.innerHTML = '<p class="empty">No unknown visitors</p>';
+                } else {
+                    unknown.forEach(visitor => {
+                        const card = document.createElement('div');
+                        card.className = 'unknown-card';
+                        const imgPath = visitor.image_path.split('/').pop();
+                        const timestamp = new Date(visitor.timestamp).toLocaleString();
+                        
+                        card.innerHTML = `
+                            <img src="/images/${imgPath}" alt="Unknown" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'200\\'%3E%3Crect fill=\\'%23ddd\\' width=\\'200\\' height=\\'200\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\' fill=\\'%23999\\' font-size=\\'48\\'%3E?%3C/text%3E%3C/svg%3E'">
+                            <div class="unknown-card-info">
+                                <p>${timestamp}</p>
+                                <button class="btn btn-primary" onclick="identifyVisitor(${visitor.id})">Identify</button>
+                            </div>
+                        `;
+                        unknownContainer.appendChild(card);
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
+        }
+
+        async function identifyVisitor(visitorId) {
+            const name = prompt('Enter person name:');
+            if (!name) return;
+            
+            try {
+                const response = await fetch(`/api/unknown/${visitorId}/identify`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name})
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`✓ ${result.message}`);
+                    loadDashboard();
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error identifying visitor:', error);
+                alert('Failed to identify visitor');
+            }
+        }
+
+        // Auto-refresh every 10 seconds
+        setInterval(loadDashboard, 10000);
+
+        // Initial load
+        loadDashboard();
+    </script>
+</body>
+</html>
