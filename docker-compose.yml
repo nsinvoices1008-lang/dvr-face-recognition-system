@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # Face Recognition Engine
+  face-recognition:
+    build: .
+    container_name: dvr-face-recognition
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    environment:
+      - TZ=Asia/Kolkata
+    command: python system/main.py
+    networks:
+      - dvr-network
+    depends_on:
+      - web-interface
+
+  # Web Interface
+  web-interface:
+    build: .
+    container_name: dvr-web-interface
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    environment:
+      - TZ=Asia/Kolkata
+      - FLASK_ENV=production
+    command: python web/app.py
+    networks:
+      - dvr-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  dvr-network:
+    driver: bridge
+
+volumes:
+  data:
+  config:
